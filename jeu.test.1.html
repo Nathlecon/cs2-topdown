@@ -1,0 +1,1937 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CS2 Tactical Shooter - Top-Down</title>
+    <style>
+        :root {
+            --bg: #1a1a1a;
+        }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            background: #000;
+            overflow: hidden;
+            font-family: 'Segoe UI', 'Arial', sans-serif;
+            cursor: none;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            width: 100vw;
+            height: 100vh;
+        }
+        canvas {
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 5;
+        }
+        #menu-overlay {
+            display: flex;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 20;
+            pointer-events: all;
+            cursor: default;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            gap: 14px;
+        }
+        #menu-overlay h1 {
+            color: #ffd700;
+            font-size: 36px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+        #menu-overlay .subtitle {
+            color: #aaa;
+            font-size: 13px;
+            margin-bottom: 16px;
+            letter-spacing: 1px;
+        }
+        .menu-btn {
+            background: #2a2a2a;
+            border: 2px solid #555;
+            border-radius: 6px;
+            padding: 12px 28px;
+            color: #ddd;
+            font-size: 15px;
+            cursor: pointer;
+            transition: all 0.2s;
+            min-width: 220px;
+            text-align: center;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            pointer-events: all;
+        }
+        .menu-btn:hover {
+            background: #3a5a3a;
+            border-color: #5a5;
+            color: #fff;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(0, 180, 0, 0.3);
+        }
+        .menu-btn.secondary {
+            border-color: #444;
+            font-size: 13px;
+            min-width: 180px;
+        }
+        #room-input {
+            background: #1a1a1a;
+            border: 2px solid #555;
+            border-radius: 6px;
+            padding: 10px 16px;
+            color: #fff;
+            font-size: 14px;
+            text-align: center;
+            width: 220px;
+            letter-spacing: 1px;
+            pointer-events: all;
+        }
+        #room-input:focus {
+            outline: none;
+            border-color: #5a5;
+        }
+        #status-text {
+            color: #888;
+            font-size: 12px;
+            min-height: 18px;
+            letter-spacing: 1px;
+        }
+        #buy-menu {
+            display: none;
+            position: absolute;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(20, 20, 20, 0.95);
+            border: 2px solid #555;
+            border-radius: 8px;
+            padding: 16px 20px;
+            color: #ccc;
+            z-index: 10;
+            min-width: 420px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7);
+            pointer-events: auto;
+            cursor: default;
+        }
+        #buy-menu.visible {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+        }
+        #buy-menu h3 {
+            width: 100%;
+            text-align: center;
+            margin: 0 0 6px;
+            color: #ffd700;
+            font-size: 16px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+        .buy-item {
+            background: #2a2a2a;
+            border: 1px solid #444;
+            border-radius: 6px;
+            padding: 10px 14px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.15s;
+            min-width: 75px;
+            color: #ddd;
+            font-size: 12px;
+            pointer-events: auto;
+        }
+        .buy-item:hover {
+            background: #3a5a3a;
+            border-color: #5a5;
+            color: #fff;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 180, 0, 0.3);
+        }
+        .buy-item.owned {
+            border-color: #666;
+            opacity: 0.5;
+            pointer-events: none;
+        }
+        .buy-item .name {
+            font-weight: bold;
+            font-size: 13px;
+            display: block;
+        }
+        .buy-item .price {
+            color: #8f8;
+            font-size: 11px;
+        }
+        .buy-item .key-hint {
+            color: #888;
+            font-size: 10px;
+            display: block;
+            margin-top: 2px;
+        }
+        #buy-menu .close-hint {
+            width: 100%;
+            text-align: center;
+            color: #777;
+            font-size: 11px;
+            margin-top: 4px;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    <div id="ui-layer"></div>
+    <div id="menu-overlay">
+        <h1>TACTICAL SHOOTER</h1>
+        <div class="subtitle">Top-Down CS2 Inspired</div>
+        <button class="menu-btn" id="btn-solo">SOLO</button>
+        <button class="menu-btn" id="btn-host">HOST GAME</button>
+        <button class="menu-btn" id="btn-join">JOIN GAME</button>
+        <input type="text" id="room-input" placeholder="ROOM CODE" maxlength="12" style="display:none;">
+        <button class="menu-btn secondary" id="btn-join-confirm" style="display:none;">CONNECT</button>
+        <button class="menu-btn secondary" id="btn-back" style="display:none;">BACK</button>
+        <div id="status-text"></div>
+    </div>
+    <div id="buy-menu">
+        <h3>BUY MENU</h3>
+        <div class="buy-item" data-item="armor">
+            <span class="name">Armor</span><span class="price">$650</span><span class="key-hint">[1]</span>
+        </div>
+        <div class="buy-item" data-item="deagle">
+            <span class="name">Deagle</span><span class="price">$700</span><span class="key-hint">[2]</span>
+        </div>
+        <div class="buy-item" data-item="ak47">
+            <span class="name">AK-47</span><span class="price">$2700</span><span class="key-hint">[3]</span>
+        </div>
+        <div class="buy-item" data-item="m4a1">
+            <span class="name">M4A1-S</span><span class="price">$3100</span><span class="key-hint">[4]</span>
+        </div>
+        <div class="buy-item" data-item="awp">
+            <span class="name">AWP</span><span class="price">$4750</span><span class="key-hint">[5]</span>
+        </div>
+        <span class="close-hint">Press [B] to close</span>
+    </div>
+    <script>
+        (function() {
+            const canvas = document.getElementById('gameCanvas');
+            const ctx = canvas.getContext('2d');
+            let W, H;
+
+            function resizeCanvas() {
+                W = canvas.width = window.innerWidth;
+                H = canvas.height = window.innerHeight;
+            }
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+
+            let audioCtx = null;
+
+            function initAudio() {
+                if (!audioCtx) {
+                    audioCtx = new(window.AudioContext || window.webkitAudioContext)();
+                }
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+            }
+
+            function playShootSound(pitch = 1.0, duration = 0.08) {
+                if (!audioCtx) return;
+                const t = audioCtx.currentTime;
+                const bufferSize = Math.floor(audioCtx.sampleRate * duration);
+                const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    const envelope = Math.exp(-i / (bufferSize * 0.25));
+                    data[i] = (Math.random() * 2 - 1) * envelope * 0.6;
+                }
+                const src = audioCtx.createBufferSource();
+                src.buffer = buffer;
+                src.playbackRate.value = pitch;
+                const filter = audioCtx.createBiquadFilter();
+                filter.type = 'lowpass';
+                filter.frequency.value = 2000 * pitch;
+                const gain = audioCtx.createGain();
+                gain.gain.value = 0.35;
+                src.connect(filter);
+                filter.connect(gain);
+                gain.connect(audioCtx.destination);
+                src.start(t);
+                src.stop(t + duration);
+            }
+
+            function playReloadSound() {
+                if (!audioCtx) return;
+                const t = audioCtx.currentTime;
+                for (let i = 0; i < 3; i++) {
+                    const osc = audioCtx.createOscillator();
+                    osc.type = 'square';
+                    osc.frequency.value = 800 + i * 200;
+                    const gain = audioCtx.createGain();
+                    gain.gain.setValueAtTime(0.15, t + i * 0.25);
+                    gain.gain.exponentialRampToValueAtTime(0.001, t + i * 0.25 + 0.1);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(t + i * 0.25);
+                    osc.stop(t + i * 0.25 + 0.1);
+                }
+            }
+
+            function playHeadshotSound() {
+                if (!audioCtx) return;
+                const t = audioCtx.currentTime;
+                const osc = audioCtx.createOscillator();
+                osc.type = 'sine';
+                osc.frequency.value = 2200;
+                const gain = audioCtx.createGain();
+                gain.gain.setValueAtTime(0.4, t);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+                const osc2 = audioCtx.createOscillator();
+                osc2.type = 'sine';
+                osc2.frequency.value = 2800;
+                const gain2 = audioCtx.createGain();
+                gain2.gain.setValueAtTime(0.25, t);
+                gain2.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc2.connect(gain2);
+                gain2.connect(audioCtx.destination);
+                osc.start(t);
+                osc.stop(t + 0.4);
+                osc2.start(t);
+                osc2.stop(t + 0.35);
+            }
+
+            function playHitSound() {
+                if (!audioCtx) return;
+                const t = audioCtx.currentTime;
+                const osc = audioCtx.createOscillator();
+                osc.type = 'sawtooth';
+                osc.frequency.value = 150;
+                const gain = audioCtx.createGain();
+                gain.gain.setValueAtTime(0.3, t);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(t);
+                osc.stop(t + 0.2);
+            }
+
+            const MAP_W = 1800;
+            const MAP_H = 1400;
+            const PLAYER_RADIUS = 16;
+            const PLAYER_SPEED = 220;
+            const ENEMY_RADIUS = 15;
+            const ENEMY_SPEED = 140;
+            const HEAD_RADIUS_RATIO = 0.35;
+            const HEAD_OFFSET_RATIO = 0.65;
+
+            const WEAPONS = {
+                knife: {
+                    name: 'Knife',
+                    type: 'melee',
+                    ammo: Infinity,
+                    reserve: Infinity,
+                    damageBody: 40,
+                    damageHead: 100,
+                    fireRate: 0.4,
+                    reloadTime: 0,
+                    range: 40,
+                    price: 0,
+                    default: true,
+                    soundPitch: 0.6,
+                    bulletSpeed: 0,
+                    spread: 0,
+                },
+                usp: {
+                    name: 'USP-S',
+                    type: 'pistol',
+                    ammo: 12,
+                    reserve: 24,
+                    damageBody: 35,
+                    damageHead: 105,
+                    fireRate: 0.18,
+                    reloadTime: 2.0,
+                    range: 900,
+                    price: 0,
+                    default: true,
+                    soundPitch: 1.0,
+                    bulletSpeed: 1400,
+                    spread: 0.02,
+                },
+                deagle: {
+                    name: 'Desert Eagle',
+                    type: 'pistol',
+                    ammo: 7,
+                    reserve: 21,
+                    damageBody: 65,
+                    damageHead: 150,
+                    fireRate: 0.45,
+                    reloadTime: 2.2,
+                    range: 1000,
+                    price: 700,
+                    default: false,
+                    soundPitch: 0.75,
+                    bulletSpeed: 1500,
+                    spread: 0.04,
+                },
+                ak47: {
+                    name: 'AK-47',
+                    type: 'rifle',
+                    ammo: 30,
+                    reserve: 60,
+                    damageBody: 38,
+                    damageHead: 110,
+                    fireRate: 0.1,
+                    reloadTime: 2.5,
+                    range: 1000,
+                    price: 2700,
+                    default: false,
+                    soundPitch: 0.85,
+                    bulletSpeed: 1600,
+                    spread: 0.06,
+                },
+                m4a1: {
+                    name: 'M4A1-S',
+                    type: 'rifle',
+                    ammo: 20,
+                    reserve: 60,
+                    damageBody: 33,
+                    damageHead: 100,
+                    fireRate: 0.09,
+                    reloadTime: 2.8,
+                    range: 1000,
+                    price: 3100,
+                    default: false,
+                    soundPitch: 1.1,
+                    bulletSpeed: 1550,
+                    spread: 0.03,
+                },
+                awp: {
+                    name: 'AWP',
+                    type: 'sniper',
+                    ammo: 5,
+                    reserve: 10,
+                    damageBody: 115,
+                    damageHead: 200,
+                    fireRate: 1.5,
+                    reloadTime: 3.5,
+                    range: 2000,
+                    price: 4750,
+                    default: false,
+                    soundPitch: 0.5,
+                    bulletSpeed: 2000,
+                    spread: 0.005,
+                },
+            };
+
+            const walls = [
+                { x: 0, y: 0, w: MAP_W, h: 16 }, { x: 0, y: MAP_H - 16, w: MAP_W, h: 16 }, { x: 0, y: 0, w: 16,
+                    h: MAP_H }, { x: MAP_W - 16, y: 0, w: 16, h: MAP_H },
+                { x: 600, y: 350, w: 500, h: 22 }, { x: 600, y: 350, w: 22, h: 280 }, { x: 1078, y: 350, w: 22,
+                    h: 280 }, { x: 600, y: 608, w: 300, h: 22 }, { x: 950, y: 450, w: 22, h: 180 },
+                { x: 150, y: 300, w: 180, h: 20 }, { x: 150, y: 550, w: 20, h: 200 }, { x: 300, y: 700, w: 160,
+                h: 20 },
+                { x: 1300, y: 250, w: 200, h: 20 }, { x: 1400, y: 250, w: 20, h: 180 }, { x: 1250, y: 600, w: 20,
+                    h: 250 }, { x: 1350, y: 800, w: 180, h: 20 },
+                { x: 1100, y: 150, w: 20, h: 120 }, { x: 1000, y: 150, w: 120, h: 20 }, { x: 1400, y: 500, w: 20,
+                h: 100 },
+                { x: 400, y: 450, w: 50, h: 50 }, { x: 800, y: 800, w: 45, h: 45 }, { x: 1050, y: 750, w: 55, h: 40 },
+                { x: 500, y: 900, w: 40, h: 55 }, { x: 1300, y: 380, w: 40, h: 40 }, { x: 250, y: 850, w: 50, h: 35 },
+                { x: 950, y: 200, w: 40, h: 50 }, { x: 700, y: 950, w: 60, h: 35 },
+            ];
+
+            const BUY_ZONE = { x: 40, y: MAP_H - 280, w: 220, h: 240 };
+
+            const state = {
+                round: 1,
+                phase: 'playing',
+                money: 800,
+                killsThisRound: 0,
+                headshotsThisRound: 0,
+                buyTimer: 12,
+                roundTimer: 0,
+                winTimer: 0,
+                loseTimer: 0,
+                shakeAmount: 0,
+                damageFlash: 0,
+                gameMode: 'solo',
+                isHost: false,
+                playerId: 'p1',
+                remotePlayers: {},
+                multiplayerConnected: false,
+            };
+
+            const keys = {};
+            let mouseX = 0,
+                mouseY = 0;
+            let mouseDown = false;
+            let mouseClicked = false;
+
+            window.addEventListener('keydown', e => {
+                keys[e.key.toLowerCase()] = true;
+                initAudio();
+                if (e.key.toLowerCase() === 'b' && state.phase === 'playing') toggleBuyMenu();
+                if (e.key === 'Enter' && (state.phase === 'win' || state.phase === 'lose')) restartRound();
+                if (e.key >= '1' && e.key <= '5' && buyMenuVisible) {
+                    const items = ['armor', 'deagle', 'ak47', 'm4a1', 'awp'];
+                    buyItem(items[parseInt(e.key) - 1]);
+                }
+                if (e.key === '1') switchWeapon('knife');
+                if (e.key === '2') switchWeapon('usp');
+                if (e.key === '3') switchWeapon('deagle');
+                if (e.key === '4') switchWeapon('ak47');
+                if (e.key === '5') switchWeapon('m4a1');
+                if (e.key === '6') switchWeapon('awp');
+                if (e.key.toLowerCase() === 'r') player.reload();
+            });
+            window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+            window.addEventListener('mousemove', e => { mouseX = e.clientX;
+                mouseY = e.clientY; });
+            window.addEventListener('mousedown', e => {
+                if (e.button === 0) { mouseDown = true;
+                    mouseClicked = true;
+                    initAudio(); }
+            });
+            window.addEventListener('mouseup', e => { if (e.button === 0) mouseDown = false; });
+            window.addEventListener('contextmenu', e => e.preventDefault());
+
+            const buyMenuEl = document.getElementById('buy-menu');
+            let buyMenuVisible = false;
+
+            function toggleBuyMenu() {
+                if (!isInBuyZone()) return;
+                buyMenuVisible = !buyMenuVisible;
+                buyMenuEl.classList.toggle('visible', buyMenuVisible);
+                updateBuyMenuItems();
+            }
+
+            function closeBuyMenu() {
+                buyMenuVisible = false;
+                buyMenuEl.classList.remove('visible');
+            }
+
+            function isInBuyZone() {
+                return (
+                    player.x > BUY_ZONE.x && player.x < BUY_ZONE.x + BUY_ZONE.w &&
+                    player.y > BUY_ZONE.y && player.y < BUY_ZONE.y + BUY_ZONE.h
+                );
+            }
+
+            function updateBuyMenuItems() {
+                const items = buyMenuEl.querySelectorAll('.buy-item');
+                items.forEach(el => {
+                    const itemName = el.dataset.item;
+                    if (itemName === 'armor' && player.armor >= 100) el.classList.add('owned');
+                    else if (itemName === 'deagle' && player.ownedWeapons.includes('deagle')) el.classList.add(
+                        'owned');
+                    else if (itemName === 'ak47' && player.ownedWeapons.includes('ak47')) el.classList.add('owned');
+                    else if (itemName === 'm4a1' && player.ownedWeapons.includes('m4a1')) el.classList.add('owned');
+                    else if (itemName === 'awp' && player.ownedWeapons.includes('awp')) el.classList.add('owned');
+                    else el.classList.remove('owned');
+                });
+            }
+
+            function buyItem(itemName) {
+                if (state.phase !== 'playing') return;
+                if (!isInBuyZone() && state.buyTimer <= 0) return;
+                let price = 0;
+                switch (itemName) {
+                    case 'armor':
+                        if (player.armor >= 100) return;
+                        price = 650;
+                        if (state.money >= price) { state.money -= price;
+                            player.armor = 100;
+                            playReloadSound(); }
+                        break;
+                    case 'deagle':
+                        if (player.ownedWeapons.includes('deagle')) return;
+                        price = WEAPONS.deagle.price;
+                        if (state.money >= price) { state.money -= price;
+                            player.ownedWeapons.push('deagle');
+                            player.switchTo('deagle');
+                            playReloadSound(); }
+                        break;
+                    case 'ak47':
+                        if (player.ownedWeapons.includes('ak47')) return;
+                        price = WEAPONS.ak47.price;
+                        if (state.money >= price) { state.money -= price;
+                            player.ownedWeapons.push('ak47');
+                            player.switchTo('ak47');
+                            playReloadSound(); }
+                        break;
+                    case 'm4a1':
+                        if (player.ownedWeapons.includes('m4a1')) return;
+                        price = WEAPONS.m4a1.price;
+                        if (state.money >= price) { state.money -= price;
+                            player.ownedWeapons.push('m4a1');
+                            player.switchTo('m4a1');
+                            playReloadSound(); }
+                        break;
+                    case 'awp':
+                        if (player.ownedWeapons.includes('awp')) return;
+                        price = WEAPONS.awp.price;
+                        if (state.money >= price) { state.money -= price;
+                            player.ownedWeapons.push('awp');
+                            player.switchTo('awp');
+                            playReloadSound(); }
+                        break;
+                }
+                updateBuyMenuItems();
+                syncPlayerState();
+            }
+
+            buyMenuEl.querySelectorAll('.buy-item').forEach(el => {
+                el.addEventListener('click', () => { buyItem(el.dataset.item); });
+            });
+
+            const player = {
+                x: 120,
+                y: MAP_H - 120,
+                vx: 0,
+                vy: 0,
+                angle: 0,
+                health: 100,
+                maxHealth: 100,
+                armor: 0,
+                maxArmor: 100,
+                currentWeapon: 'usp',
+                ownedWeapons: ['knife', 'usp'],
+                ammoInMag: 12,
+                reserveAmmo: 24,
+                reloading: false,
+                reloadProgress: 0,
+                reloadTotalTime: 0,
+                lastShotTime: 0,
+                alive: true,
+                reload() {
+                    if (this.reloading) return;
+                    const wp = WEAPONS[this.currentWeapon];
+                    if (!wp || wp.type === 'melee') return;
+                    if (this.ammoInMag >= wp.ammo) return;
+                    if (this.reserveAmmo <= 0 && wp.reserve > 0) return;
+                    this.reloading = true;
+                    this.reloadProgress = 0;
+                    this.reloadTotalTime = wp.reloadTime;
+                    playReloadSound();
+                },
+                finishReload() {
+                    const wp = WEAPONS[this.currentWeapon];
+                    if (!wp || wp.type === 'melee') return;
+                    const needed = wp.ammo - this.ammoInMag;
+                    const available = Math.min(needed, this.reserveAmmo);
+                    this.ammoInMag += available;
+                    this.reserveAmmo -= available;
+                    this.reloading = false;
+                    this.reloadProgress = 0;
+                },
+                switchTo(weaponKey) {
+                    if (this.reloading) this.reloading = false;
+                    if (!this.ownedWeapons.includes(weaponKey)) return;
+                    if (this.currentWeapon === weaponKey) return;
+                    this.currentWeapon = weaponKey;
+                    const wp = WEAPONS[weaponKey];
+                    if (wp.type === 'pistol' || wp.type === 'rifle' || wp.type === 'sniper') {
+                        this.reserveAmmo = wp.reserve;
+                        this.ammoInMag = wp.ammo;
+                    }
+                    if (wp.type === 'melee') { this.ammoInMag = Infinity;
+                        this.reserveAmmo = Infinity; }
+                },
+                shoot(currentTime) {
+                    if (!this.alive) return;
+                    if (this.reloading) return;
+                    const wp = WEAPONS[this.currentWeapon];
+                    if (!wp) return;
+                    if (currentTime - this.lastShotTime < wp.fireRate) return;
+                    if (wp.type === 'melee') {
+                        this.lastShotTime = currentTime;
+                        playShootSound(0.5, 0.05);
+                        for (const enemy of enemies) {
+                            if (!enemy.alive) continue;
+                            const dx = enemy.x - this.x;
+                            const dy = enemy.y - this.y;
+                            const dist = Math.sqrt(dx * dx + dy * dy);
+                            if (dist < wp.range + ENEMY_RADIUS) {
+                                const angleToEnemy = Math.atan2(dy, dx);
+                                let angleDiff = angleToEnemy - this.angle;
+                                while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+                                while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+                                if (Math.abs(angleDiff) < 0.8) {
+                                    const headDist = dist - HEAD_OFFSET_RATIO * ENEMY_RADIUS;
+                                    const isHeadshot = headDist < HEAD_RADIUS_RATIO * ENEMY_RADIUS + 8;
+                                    const dmg = isHeadshot ? wp.damageHead : wp.damageBody;
+                                    enemyTakeDamage(enemy, dmg, isHeadshot, this);
+                                }
+                            }
+                        }
+                        return;
+                    }
+                    if (this.ammoInMag <= 0) {
+                        if (currentTime - this.lastShotTime > 0.3) {
+                            this.lastShotTime = currentTime;
+                            if (audioCtx) {
+                                const osc = audioCtx.createOscillator();
+                                osc.type = 'square';
+                                osc.frequency.value = 400;
+                                const g = audioCtx.createGain();
+                                g.gain.setValueAtTime(0.08, audioCtx.currentTime);
+                                g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.04);
+                                osc.connect(g);
+                                g.connect(audioCtx.destination);
+                                osc.start();
+                                osc.stop(audioCtx.currentTime + 0.05);
+                            }
+                        }
+                        return;
+                    }
+                    this.lastShotTime = currentTime;
+                    this.ammoInMag--;
+                    playShootSound(wp.soundPitch, wp.type === 'sniper' ? 0.18 : 0.07);
+                    const spread = wp.spread * (Math.random() - 0.5) * 2;
+                    const bulletAngle = this.angle + spread;
+                    const muzzleX = this.x + Math.cos(this.angle) * (PLAYER_RADIUS + 8);
+                    const muzzleY = this.y + Math.sin(this.angle) * (PLAYER_RADIUS + 8);
+                    const bulletData = {
+                        id: 'b_' + Math.random().toString(36).substr(2, 9),
+                        x: muzzleX,
+                        y: muzzleY,
+                        vx: Math.cos(bulletAngle) * wp.bulletSpeed,
+                        vy: Math.sin(bulletAngle) * wp.bulletSpeed,
+                        damageBody: wp.damageBody,
+                        damageHead: wp.damageHead,
+                        isPlayerBullet: true,
+                        life: wp.range / wp.bulletSpeed,
+                        trail: [],
+                        ownerId: state.playerId,
+                    };
+                    bullets.push(bulletData);
+                    muzzleFlashes.push({ x: muzzleX, y: muzzleY, life: 0.06, maxLife: 0.06, radius: wp.type ===
+                            'sniper' ? 18 : 10 });
+                    state.shakeAmount = Math.max(state.shakeAmount, wp.type === 'sniper' ? 6 : 2);
+                    broadcastBullet(bulletData);
+                },
+                takeDamage(amount) {
+                    if (!this.alive) return;
+                    let actualDmg = amount;
+                    if (this.armor > 0) {
+                        const armorAbsorb = Math.min(this.armor, Math.floor(amount * 0.5));
+                        this.armor -= armorAbsorb;
+                        actualDmg = amount - armorAbsorb;
+                    }
+                    this.health -= actualDmg;
+                    state.damageFlash = 0.35;
+                    state.shakeAmount = Math.max(state.shakeAmount, 5);
+                    playHitSound();
+                    if (this.health <= 0) { this.health = 0;
+                        this.alive = false;
+                        state.phase = 'lose';
+                        state.loseTimer = 0;
+                        closeBuyMenu(); }
+                    syncPlayerState();
+                },
+                update(dt) {
+                    if (!this.alive) return;
+                    if (state.phase === 'win' || state.phase === 'lose') return;
+                    if (this.reloading) {
+                        this.reloadProgress += dt;
+                        if (this.reloadProgress >= this.reloadTotalTime) this.finishReload();
+                    }
+                    let moveX = 0,
+                        moveY = 0;
+                    if (keys['z'] || keys['w']) moveY -= 1;
+                    if (keys['s']) moveY += 1;
+                    if (keys['q'] || keys['a']) moveX -= 1;
+                    if (keys['d']) moveX += 1;
+                    const mag = Math.sqrt(moveX * moveX + moveY * moveY);
+                    if (mag > 0) { moveX /= mag;
+                        moveY /= mag; }
+                    const speed = PLAYER_SPEED * (this.reloading ? 0.7 : 1.0);
+                    this.vx = moveX * speed;
+                    this.vy = moveY * speed;
+                    let newX = this.x + this.vx * dt;
+                    let newY = this.y + this.vy * dt;
+                    const resolved = resolveWallCollision(this.x, this.y, newX, newY, PLAYER_RADIUS);
+                    this.x = resolved.x;
+                    this.y = resolved.y;
+                    this.x = Math.max(PLAYER_RADIUS, Math.min(MAP_W - PLAYER_RADIUS, this.x));
+                    this.y = Math.max(PLAYER_RADIUS, Math.min(MAP_H - PLAYER_RADIUS, this.y));
+                    const worldMouse = screenToWorld(mouseX, mouseY);
+                    this.angle = Math.atan2(worldMouse.y - this.y, worldMouse.x - this.x);
+                },
+                reset() {
+                    this.x = 120;
+                    this.y = MAP_H - 120;
+                    this.health = this.maxHealth;
+                    this.armor = Math.max(0, this.armor);
+                    this.alive = true;
+                    this.reloading = false;
+                    this.reloadProgress = 0;
+                    this.currentWeapon = this.ownedWeapons.includes('usp') ? 'usp' : 'knife';
+                    const wp = WEAPONS[this.currentWeapon];
+                    if (wp && wp.type !== 'melee') { this.ammoInMag = wp.ammo;
+                        this.reserveAmmo = wp.reserve; }
+                    if (!this.ownedWeapons.includes(this.currentWeapon) || WEAPONS[this.currentWeapon].type ===
+                        'melee') {
+                        if (this.ownedWeapons.length > 1) {
+                            this.currentWeapon = this.ownedWeapons[1];
+                            const w = WEAPONS[this.currentWeapon];
+                            this.ammoInMag = w.ammo;
+                            this.reserveAmmo = w.reserve;
+                        }
+                    }
+                },
+            };
+
+            function switchWeapon(key) {
+                if (player.reloading) player.reloading = false;
+                player.switchTo(key);
+                syncPlayerState();
+            }
+
+            let enemies = [];
+
+            function createEnemy(x, y, patrolPoints) {
+                return {
+                    id: 'e_' + Math.random().toString(36).substr(2, 9),
+                    x,
+                    y,
+                    vx: 0,
+                    vy: 0,
+                    angle: Math.random() * Math.PI * 2,
+                    health: 100,
+                    alive: true,
+                    state: 'patrol',
+                    patrolIndex: 0,
+                    patrolPoints: patrolPoints || [{ x, y }],
+                    patrolWait: 0,
+                    detectionRange: 480,
+                    attackRange: 350,
+                    preferredDistance: 220,
+                    lastShotTime: 0,
+                    fireRate: 0.35 + Math.random() * 0.3,
+                    burstCount: 0,
+                    burstMax: 2 + Math.floor(Math.random() * 3),
+                    burstDelay: 0,
+                    accuracy: 0.08 + Math.random() * 0.06,
+                    reactionTime: 0.3 + Math.random() * 0.4,
+                    alertTimer: 0,
+                    combatTimer: 0,
+                    flankDir: Math.random() > 0.5 ? 1 : -1,
+                    strafeTimer: 0,
+                    strafeDir: 0,
+                    damageFlash: 0,
+                };
+            }
+
+            function spawnEnemies() {
+                enemies = [];
+                const count = 5 + Math.floor(state.round / 2);
+                const spawnZones = [
+                    { x: 1400, y: 300, pts: [{ x: 1400, y: 300 }, { x: 1250, y: 450 }, { x: 1300, y: 700 }] },
+                    { x: 900, y: 200, pts: [{ x: 900, y: 200 }, { x: 750, y: 400 }, { x: 1000, y: 500 }] },
+                    { x: 400, y: 350, pts: [{ x: 400, y: 350 }, { x: 250, y: 500 }, { x: 500, y: 600 }] },
+                    { x: 1100, y: 700, pts: [{ x: 1100, y: 700 }, { x: 950, y: 850 }, { x: 1200, y: 900 }] },
+                    { x: 700, y: 1000, pts: [{ x: 700, y: 1000 }, { x: 500, y: 850 }, { x: 900, y: 800 }] },
+                    { x: 1500, y: 600, pts: [{ x: 1500, y: 600 }, { x: 1400, y: 750 }, { x: 1350, y: 400 }] },
+                    { x: 300, y: 800, pts: [{ x: 300, y: 800 }, { x: 200, y: 600 }, { x: 450, y: 700 }] },
+                    { x: 1000, y: 400, pts: [{ x: 1000, y: 400 }, { x: 850, y: 300 }, { x: 1100, y: 500 }] },
+                ];
+                for (let i = 0; i < Math.min(count, spawnZones.length); i++) {
+                    const zone = spawnZones[i];
+                    enemies.push(createEnemy(zone.x, zone.y, zone.pts));
+                }
+            }
+
+            function updateEnemy(enemy, dt) {
+                if (!enemy.alive) return;
+                if (state.phase === 'win' || state.phase === 'lose') return;
+                if (!player.alive) return;
+                enemy.damageFlash = Math.max(0, enemy.damageFlash - dt * 5);
+                const dx = player.x - enemy.x;
+                const dy = player.y - enemy.y;
+                const distToPlayer = Math.sqrt(dx * dx + dy * dy);
+                const hasLOS = hasLineOfSight(enemy.x, enemy.y, player.x, player.y);
+                switch (enemy.state) {
+                    case 'patrol':
+                        const target = enemy.patrolPoints[enemy.patrolIndex];
+                        const tdx = target.x - enemy.x;
+                        const tdy = target.y - enemy.y;
+                        const tdist = Math.sqrt(tdx * tdx + tdy * tdy);
+                        if (tdist < 15) {
+                            enemy.patrolWait += dt;
+                            if (enemy.patrolWait > 1.5) { enemy.patrolIndex = (enemy.patrolIndex + 1) % enemy.patrolPoints
+                                    .length;
+                                enemy.patrolWait = 0; }
+                        } else {
+                            const speed = ENEMY_SPEED * 0.5;
+                            enemy.vx = (tdx / tdist) * speed;
+                            enemy.vy = (tdy / tdist) * speed;
+                            enemy.angle = Math.atan2(tdy, tdx);
+                        }
+                        if (hasLOS && distToPlayer < enemy.detectionRange) { enemy.state = 'alert';
+                            enemy.alertTimer = enemy.reactionTime; }
+                        if (distToPlayer < 700 && player.lastShotTime > 0 && performance.now() / 1000 - player
+                            .lastShotTime < 0.5) { enemy.state = 'alert';
+                            enemy.alertTimer = enemy.reactionTime * 0.5; }
+                        break;
+                    case 'alert':
+                        enemy.alertTimer -= dt;
+                        enemy.vx *= 0.9;
+                        enemy.vy *= 0.9;
+                        if (hasLOS && distToPlayer < enemy.detectionRange) { if (enemy.alertTimer <= 0) { enemy.state =
+                                    'combat';
+                                enemy.combatTimer = 4 + Math.random() * 3;
+                                enemy.strafeTimer = 0; } } else if (enemy.alertTimer <= 0) { enemy.state =
+                        'patrol'; }
+                        if (hasLOS) enemy.angle = Math.atan2(dy, dx);
+                        break;
+                    case 'combat':
+                        enemy.combatTimer -= dt;
+                        if (!hasLOS || distToPlayer > enemy.detectionRange * 1.3) { if (enemy.combatTimer <= 0) { enemy
+                                    .state = 'patrol';
+                                break; } } else { enemy.combatTimer = 4; }
+                        enemy.angle = Math.atan2(dy, dx);
+                        const distDiff = distToPlayer - enemy.preferredDistance;
+                        const moveSpeed = ENEMY_SPEED;
+                        enemy.strafeTimer -= dt;
+                        if (enemy.strafeTimer <= 0) { enemy.strafeTimer = 0.8 + Math.random() * 1.5;
+                            enemy.strafeDir = Math.random() > 0.5 ? 1 : -1; if (Math.random() < 0.3) enemy.strafeDir =
+                                enemy.flankDir; }
+                        const perpX = -dy / Math.max(distToPlayer, 1);
+                        const perpY = dx / Math.max(distToPlayer, 1);
+                        let moveX = 0,
+                            moveY = 0;
+                        if (distDiff > 30) moveX += (dx / distToPlayer) * moveSpeed;
+                        else if (distDiff < -30) moveX -= (dx / distToPlayer) * moveSpeed * 0.6;
+                        moveX += perpX * enemy.strafeDir * moveSpeed * 0.5;
+                        moveY += perpY * enemy.strafeDir * moveSpeed * 0.5;
+                        const mag2 = Math.sqrt(moveX * moveX + moveY * moveY);
+                        if (mag2 > moveSpeed) { moveX = (moveX / mag2) * moveSpeed;
+                            moveY = (moveY / mag2) * moveSpeed; }
+                        enemy.vx = moveX;
+                        enemy.vy = moveY;
+                        if (hasLOS && distToPlayer < enemy.attackRange) {
+                            const now = performance.now() / 1000;
+                            if (now - enemy.lastShotTime > enemy.fireRate && enemy.burstCount < enemy.burstMax) {
+                                enemy.lastShotTime = now;
+                                enemy.burstCount++;
+                                enemy.burstDelay = 0;
+                                shootAtPlayer(enemy);
+                            }
+                            if (enemy.burstCount >= enemy.burstMax) { enemy.burstDelay += dt; if (enemy.burstDelay > 0.8 +
+                                    Math.random() * 1.2) { enemy.burstCount = 0;
+                                    enemy.burstMax = 2 + Math.floor(Math.random() * 4); } }
+                        }
+                        break;
+                }
+                let newX = enemy.x + enemy.vx * dt;
+                let newY = enemy.y + enemy.vy * dt;
+                const resolved = resolveWallCollision(enemy.x, enemy.y, newX, newY, ENEMY_RADIUS);
+                enemy.x = Math.max(ENEMY_RADIUS, Math.min(MAP_W - ENEMY_RADIUS, resolved.x));
+                enemy.y = Math.max(ENEMY_RADIUS, Math.min(MAP_H - ENEMY_RADIUS, resolved.y));
+                enemy.vx *= 0.9;
+                enemy.vy *= 0.9;
+            }
+
+            function shootAtPlayer(enemy) {
+                const dx = player.x - enemy.x;
+                const dy = player.y - enemy.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                const baseAngle = Math.atan2(dy, dx);
+                const spread = enemy.accuracy * (Math.random() - 0.5) * 2;
+                const bulletAngle = baseAngle + spread;
+                const muzzleX = enemy.x + Math.cos(bulletAngle) * (ENEMY_RADIUS + 6);
+                const muzzleY = enemy.y + Math.sin(bulletAngle) * (ENEMY_RADIUS + 6);
+                const bulletData = {
+                    id: 'b_' + Math.random().toString(36).substr(2, 9),
+                    x: muzzleX,
+                    y: muzzleY,
+                    vx: Math.cos(bulletAngle) * 1200,
+                    vy: Math.sin(bulletAngle) * 1200,
+                    damageBody: 22 + Math.floor(Math.random() * 8),
+                    damageHead: 55 + Math.floor(Math.random() * 15),
+                    isPlayerBullet: false,
+                    life: 0.7,
+                    trail: [],
+                    ownerId: enemy.id,
+                };
+                bullets.push(bulletData);
+                muzzleFlashes.push({ x: muzzleX, y: muzzleY, life: 0.04, maxLife: 0.04, radius: 7 });
+                playShootSound(0.9, 0.05);
+                broadcastBullet(bulletData);
+            }
+
+            function enemyTakeDamage(enemy, amount, isHeadshot, attacker) {
+                if (!enemy.alive) return;
+                enemy.health -= amount;
+                enemy.damageFlash = 1;
+                enemy.state = 'combat';
+                enemy.combatTimer = 5;
+                enemy.alertTimer = 0;
+                if (isHeadshot && enemy.health > 0 && amount >= 90) enemy.health = 0;
+                if (enemy.health <= 0) {
+                    enemy.health = 0;
+                    enemy.alive = false;
+                    state.killsThisRound++;
+                    if (isHeadshot) state.headshotsThisRound++;
+                    state.money += 300 + (isHeadshot ? 100 : 0);
+                    playHeadshotSound();
+                    for (let i = 0; i < 15; i++) {
+                        particles.push({ x: enemy.x, y: enemy.y, vx: (Math.random() - 0.5) * 300, vy: (Math.random() -
+                                0.5) * 300, life: 0.5 + Math.random() * 0.5, maxLife: 0.5 + Math.random() * 0.5,
+                            color: '#c0392b', radius: 2 + Math.random() * 3 });
+                    }
+                    broadcastEnemyDeath(enemy.id);
+                    checkWinCondition();
+                } else {
+                    playHitSound();
+                    for (let i = 0; i < 4; i++) {
+                        particles.push({ x: enemy.x, y: enemy.y, vx: (Math.random() - 0.5) * 150, vy: (Math.random() -
+                                0.5) * 150, life: 0.3 + Math.random() * 0.3, maxLife: 0.3 + Math.random() * 0.3,
+                            color: '#e74c3c', radius: 1.5 + Math.random() * 2 });
+                    }
+                }
+                broadcastEnemyState(enemy);
+            }
+
+            function checkWinCondition() {
+                const allDead = enemies.every(e => !e.alive);
+                if (allDead && state.phase === 'playing') { state.phase = 'win';
+                    state.winTimer = 0;
+                    state.money += 3250;
+                    closeBuyMenu();
+                    broadcastGameState(); }
+            }
+
+            let bullets = [];
+            let muzzleFlashes = [];
+            let particles = [];
+
+            function updateBullets(dt) {
+                for (let i = bullets.length - 1; i >= 0; i--) {
+                    const b = bullets[i];
+                    b.x += b.vx * dt;
+                    b.y += b.vy * dt;
+                    b.life -= dt;
+                    b.trail.push({ x: b.x, y: b.y, life: 0.08 });
+                    b.trail = b.trail.filter(t => { t.life -= dt; return t.life > 0; });
+                    let hitWall = false;
+                    for (const wall of walls) {
+                        if (b.x > wall.x && b.x < wall.x + wall.w && b.y > wall.y && b.y < wall.y + wall.h) { hitWall =
+                                true;
+                            break; }
+                    }
+                    if (hitWall || b.life <= 0 || b.x < 0 || b.x > MAP_W || b.y < 0 || b.y > MAP_H) {
+                        if (hitWall) {
+                            for (let j = 0; j < 6; j++) {
+                                particles.push({ x: b.x, y: b.y, vx: (Math.random() - 0.5) * 200, vy: (Math.random() -
+                                        0.5) * 200, life: 0.2 + Math.random() * 0.2, maxLife: 0.2 + Math.random() *
+                                        0.2, color: '#ccc', radius: 1 + Math.random() * 2 });
+                            }
+                        }
+                        bullets.splice(i, 1);
+                        continue;
+                    }
+                    if (b.isPlayerBullet) {
+                        for (const enemy of enemies) {
+                            if (!enemy.alive) continue;
+                            const edx = b.x - enemy.x;
+                            const edy = b.y - enemy.y;
+                            const edist = Math.sqrt(edx * edx + edy * edy);
+                            if (edist < ENEMY_RADIUS + 3) {
+                                const headX = enemy.x + Math.cos(enemy.angle) * ENEMY_RADIUS * HEAD_OFFSET_RATIO;
+                                const headY = enemy.y + Math.sin(enemy.angle) * ENEMY_RADIUS * HEAD_OFFSET_RATIO;
+                                const hdx = b.x - headX;
+                                const hdy = b.y - headY;
+                                const hdist = Math.sqrt(hdx * hdx + hdy * hdy);
+                                const headRadius = ENEMY_RADIUS * HEAD_RADIUS_RATIO;
+                                const isHeadshot = hdist < headRadius + 2;
+                                const dmg = isHeadshot ? b.damageHead : b.damageBody;
+                                enemyTakeDamage(enemy, dmg, isHeadshot, player);
+                                bullets.splice(i, 1);
+                                break;
+                            }
+                        }
+                    } else {
+                        if (player.alive) {
+                            const pdx = b.x - player.x;
+                            const pdy = b.y - player.y;
+                            const pdist = Math.sqrt(pdx * pdx + pdy * pdy);
+                            if (pdist < PLAYER_RADIUS + 3) {
+                                const headX = player.x + Math.cos(player.angle) * PLAYER_RADIUS * HEAD_OFFSET_RATIO;
+                                const headY = player.y + Math.sin(player.angle) * PLAYER_RADIUS * HEAD_OFFSET_RATIO;
+                                const hdx = b.x - headX;
+                                const hdy = b.y - headY;
+                                const hdist = Math.sqrt(hdx * hdx + hdy * hdy);
+                                const headRadius = PLAYER_RADIUS * HEAD_RADIUS_RATIO;
+                                const isHeadshot = hdist < headRadius + 2;
+                                const dmg = isHeadshot ? b.damageHead : b.damageBody;
+                                player.takeDamage(dmg);
+                                bullets.splice(i, 1);
+                            }
+                        }
+                    }
+                }
+            }
+
+            function updateParticlesAndFlashes(dt) {
+                for (let i = particles.length - 1; i >= 0; i--) {
+                    const p = particles[i];
+                    p.x += p.vx * dt;
+                    p.y += p.vy * dt;
+                    p.life -= dt;
+                    if (p.life <= 0) particles.splice(i, 1);
+                }
+                for (let i = muzzleFlashes.length - 1; i >= 0; i--) {
+                    muzzleFlashes[i].life -= dt;
+                    if (muzzleFlashes[i].life <= 0) muzzleFlashes.splice(i, 1);
+                }
+            }
+
+            function resolveWallCollision(oldX, oldY, newX, newY, radius) {
+                let rx = newX;
+                let ry = newY;
+                for (const wall of walls) {
+                    const wx = wall.x,
+                        wy = wall.y,
+                        ww = wall.w,
+                        wh = wall.h;
+                    const closestX = Math.max(wx, Math.min(rx, wx + ww));
+                    const closestY = Math.max(wy, Math.min(oldY, wy + wh));
+                    const distX = Math.sqrt((rx - closestX) ** 2 + (oldY - closestY) ** 2);
+                    if (distX < radius) { if (rx > oldX) rx = wx - radius;
+                    else if (rx < oldX) rx = wx + ww + radius; }
+                }
+                for (const wall of walls) {
+                    const wx = wall.x,
+                        wy = wall.y,
+                        ww = wall.w,
+                        wh = wall.h;
+                    const closestX = Math.max(wx, Math.min(rx, wx + ww));
+                    const closestY = Math.max(wy, Math.min(ry, wy + wh));
+                    const distY = Math.sqrt((rx - closestX) ** 2 + (ry - closestY) ** 2);
+                    if (distY < radius) { if (ry > oldY) ry = wy - radius;
+                    else if (ry < oldY) ry = wy + wh + radius; }
+                }
+                return { x: rx, y: ry };
+            }
+
+            function hasLineOfSight(x1, y1, x2, y2) {
+                const steps = 20;
+                for (let i = 0; i <= steps; i++) {
+                    const t = i / steps;
+                    const cx = x1 + (x2 - x1) * t;
+                    const cy = y1 + (y2 - y1) * t;
+                    for (const wall of walls) {
+                        if (cx > wall.x - 2 && cx < wall.x + wall.w + 2 && cy > wall.y - 2 && cy < wall.y + wall.h + 2)
+                            return false;
+                    }
+                }
+                return true;
+            }
+
+            const camera = { x: 0, y: 0, targetX: 0, targetY: 0 };
+
+            function updateCamera(dt) {
+                camera.targetX = player.x - W / 2;
+                camera.targetY = player.y - H / 2;
+                camera.targetX = Math.max(0, Math.min(MAP_W - W, camera.targetX));
+                camera.targetY = Math.max(0, Math.min(MAP_H - H, camera.targetY));
+                if (MAP_W <= W) camera.targetX = (MAP_W - W) / 2;
+                if (MAP_H <= H) camera.targetY = (MAP_H - H) / 2;
+                const lerpFactor = 1 - Math.exp(-8 * dt);
+                camera.x += (camera.targetX - camera.x) * lerpFactor;
+                camera.y += (camera.targetY - camera.y) * lerpFactor;
+            }
+
+            function screenToWorld(sx, sy) { return { x: sx + camera.x, y: sy + camera.y }; }
+
+            function worldToScreen(wx, wy) { return { x: wx - camera.x, y: wy - camera.y }; }
+
+            function drawMap() {
+                ctx.fillStyle = '#c8b07a';
+                ctx.fillRect(-camera.x, -camera.y, MAP_W, MAP_H);
+                ctx.strokeStyle = 'rgba(0,0,0,0.06)';
+                ctx.lineWidth = 1;
+                const gridSize = 40;
+                const startX = Math.floor(camera.x / gridSize) * gridSize;
+                const startY = Math.floor(camera.y / gridSize) * gridSize;
+                for (let x = startX; x < camera.x + W + gridSize; x += gridSize) { ctx.beginPath();
+                    ctx.moveTo(x - camera.x, -camera.y);
+                    ctx.lineTo(x - camera.x, -camera.y + MAP_H);
+                    ctx.stroke(); }
+                for (let y = startY; y < camera.y + H + gridSize; y += gridSize) { ctx.beginPath();
+                    ctx.moveTo(-camera.x, y - camera.y);
+                    ctx.lineTo(-camera.x + MAP_W, y - camera.y);
+                    ctx.stroke(); }
+                const bz = BUY_ZONE;
+                ctx.fillStyle = 'rgba(50,150,255,0.25)';
+                ctx.fillRect(bz.x - camera.x, bz.y - camera.y, bz.w, bz.h);
+                ctx.strokeStyle = 'rgba(50,150,255,0.6)';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([8, 4]);
+                ctx.strokeRect(bz.x - camera.x, bz.y - camera.y, bz.w, bz.h);
+                ctx.setLineDash([]);
+                ctx.fillStyle = 'rgba(255,255,255,0.8)';
+                ctx.font = '12px "Segoe UI", Arial, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('BUY ZONE', bz.x + bz.w / 2 - camera.x, bz.y + bz.h / 2 - camera.y);
+                for (const wall of walls) {
+                    const sx = wall.x - camera.x,
+                        sy = wall.y - camera.y;
+                    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+                    ctx.fillRect(sx + 2, sy + 2, wall.w, wall.h);
+                    const gradient = ctx.createLinearGradient(sx, sy, sx, sy + wall.h);
+                    gradient.addColorStop(0, '#8b7d6b');
+                    gradient.addColorStop(0.5, '#a09080');
+                    gradient.addColorStop(1, '#6b5d4b');
+                    ctx.fillStyle = gradient;
+                    ctx.fillRect(sx, sy, wall.w, wall.h);
+                    ctx.strokeStyle = '#4a3d2b';
+                    ctx.lineWidth = 1.5;
+                    ctx.strokeRect(sx, sy, wall.w, wall.h);
+                }
+                const bsX = 1150,
+                    bsY = 200;
+                ctx.fillStyle = 'rgba(255,200,50,0.2)';
+                ctx.beginPath();
+                ctx.arc(bsX - camera.x, bsY - camera.y, 80, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = 'rgba(255,200,50,0.5)';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([6, 6]);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                ctx.fillStyle = 'rgba(255,200,50,0.7)';
+                ctx.font = 'bold 11px "Segoe UI", Arial, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('BOMB A', bsX - camera.x, bsY - camera.y + 4);
+            }
+
+            function drawEntity(x, y, radius, angle, color, headColor, isPlayer, damageFlash, label) {
+                const sx = x - camera.x,
+                    sy = y - camera.y;
+                ctx.fillStyle = damageFlash > 0.3 ? '#fff' : color;
+                ctx.beginPath();
+                ctx.arc(sx, sy, radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                const dirX = sx + Math.cos(angle) * radius * 0.8;
+                const dirY = sy + Math.sin(angle) * radius * 0.8;
+                ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(sx, sy);
+                ctx.lineTo(dirX, dirY);
+                ctx.stroke();
+                const headX = sx + Math.cos(angle) * radius * HEAD_OFFSET_RATIO;
+                const headY = sy + Math.sin(angle) * radius * HEAD_OFFSET_RATIO;
+                const headR = radius * HEAD_RADIUS_RATIO;
+                ctx.fillStyle = headColor;
+                ctx.beginPath();
+                ctx.arc(headX, headY, headR, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+                const eyeOffset = headR * 0.35;
+                const eyeX1 = headX + Math.cos(angle + 0.6) * eyeOffset;
+                const eyeY1 = headY + Math.sin(angle + 0.6) * eyeOffset;
+                const eyeX2 = headX + Math.cos(angle - 0.6) * eyeOffset;
+                const eyeY2 = headY + Math.sin(angle - 0.6) * eyeOffset;
+                ctx.fillStyle = '#fff';
+                ctx.beginPath();
+                ctx.arc(eyeX1, eyeY1, headR * 0.3, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(eyeX2, eyeY2, headR * 0.3, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#000';
+                ctx.beginPath();
+                ctx.arc(eyeX1, eyeY1, headR * 0.15, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(eyeX2, eyeY2, headR * 0.15, 0, Math.PI * 2);
+                ctx.fill();
+                if (label) {
+                    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+                    ctx.font = '10px "Segoe UI", Arial, sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(label, sx, sy - radius - 8);
+                }
+            }
+
+            function drawBullets() {
+                for (const b of bullets) {
+                    const sx = b.x - camera.x,
+                        sy = b.y - camera.y;
+                    if (b.trail.length > 1) {
+                        ctx.strokeStyle = b.isPlayerBullet ? 'rgba(255,220,100,0.7)' : 'rgba(255,100,80,0.6)';
+                        ctx.lineWidth = 1.5;
+                        ctx.beginPath();
+                        ctx.moveTo(b.trail[0].x - camera.x, b.trail[0].y - camera.y);
+                        for (let i = 1; i < b.trail.length; i++) ctx.lineTo(b.trail[i].x - camera.x, b.trail[i].y -
+                            camera.y);
+                        ctx.lineTo(sx, sy);
+                        ctx.stroke();
+                    }
+                    ctx.fillStyle = b.isPlayerBullet ? '#ffe066' : '#ff6040';
+                    ctx.beginPath();
+                    ctx.arc(sx, sy, 2.5, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.fillStyle = '#fff';
+                    ctx.beginPath();
+                    ctx.arc(sx, sy, 1, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+
+            function drawMuzzleFlashes() {
+                for (const mf of muzzleFlashes) {
+                    const alpha = mf.life / mf.maxLife;
+                    const sx = mf.x - camera.x,
+                        sy = mf.y - camera.y;
+                    const gradient = ctx.createRadialGradient(sx, sy, 0, sx, sy, mf.radius);
+                    gradient.addColorStop(0, `rgba(255,255,200,${alpha})`);
+                    gradient.addColorStop(0.4, `rgba(255,200,50,${alpha * 0.8})`);
+                    gradient.addColorStop(1, `rgba(255,100,20,0)`);
+                    ctx.fillStyle = gradient;
+                    ctx.beginPath();
+                    ctx.arc(sx, sy, mf.radius, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+
+            function drawParticles() {
+                for (const p of particles) {
+                    const alpha = p.life / p.maxLife;
+                    const sx = p.x - camera.x,
+                        sy = p.y - camera.y;
+                    ctx.fillStyle = p.color;
+                    ctx.globalAlpha = alpha;
+                    ctx.beginPath();
+                    ctx.arc(sx, sy, p.radius, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.globalAlpha = 1;
+            }
+
+            function drawHUD() {
+                const mmW = 160,
+                    mmH = 120;
+                const mmX = 15,
+                    mmY = 15;
+                const scaleX = mmW / MAP_W;
+                const scaleY = mmH / MAP_H;
+                ctx.fillStyle = 'rgba(0,0,0,0.7)';
+                ctx.fillRect(mmX, mmY, mmW, mmH);
+                ctx.strokeStyle = '#555';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(mmX, mmY, mmW, mmH);
+                ctx.fillStyle = '#666';
+                for (const wall of walls) ctx.fillRect(mmX + wall.x * scaleX, mmY + wall.y * scaleX, Math.max(1, wall.w *
+                    scaleX), Math.max(1, wall.h * scaleY));
+                ctx.fillStyle = 'rgba(50,150,255,0.5)';
+                ctx.fillRect(mmX + BUY_ZONE.x * scaleX, mmY + BUY_ZONE.y * scaleX, BUY_ZONE.w * scaleX, BUY_ZONE.h *
+                    scaleY);
+                ctx.fillStyle = '#4f4';
+                ctx.beginPath();
+                ctx.arc(mmX + player.x * scaleX, mmY + player.y * scaleY, 3, 0, Math.PI * 2);
+                ctx.fill();
+                for (const rId in state.remotePlayers) {
+                    const rp = state.remotePlayers[rId];
+                    if (!rp.alive) continue;
+                    ctx.fillStyle = '#ff0';
+                    ctx.beginPath();
+                    ctx.arc(mmX + rp.x * scaleX, mmY + rp.y * scaleY, 2.5, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                for (const enemy of enemies) {
+                    if (!enemy.alive) continue;
+                    const hasLOS = hasLineOfSight(player.x, player.y, enemy.x, enemy.y);
+                    const dist = Math.sqrt((enemy.x - player.x) ** 2 + (enemy.y - player.y) ** 2);
+                    if (hasLOS || dist < 400 || enemy.state === 'combat') {
+                        ctx.fillStyle = '#f44';
+                        ctx.beginPath();
+                        ctx.arc(mmX + enemy.x * scaleX, mmY + enemy.y * scaleY, 2.5, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
+                const hudY = H - 70;
+                const hudX = 25;
+                ctx.fillStyle = 'rgba(0,0,0,0.5)';
+                ctx.fillRect(hudX - 5, hudY - 5, 200, 55);
+                ctx.strokeStyle = '#444';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(hudX - 5, hudY - 5, 200, 55);
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 11px "Segoe UI", Arial, sans-serif';
+                ctx.textAlign = 'left';
+                ctx.fillText('HEALTH', hudX, hudY + 12);
+                const healthBarW = 170,
+                    healthBarH = 10;
+                ctx.fillStyle = '#333';
+                ctx.fillRect(hudX, hudY + 16, healthBarW, healthBarH);
+                const healthRatio = player.health / player.maxHealth;
+                const healthColor = healthRatio > 0.5 ? '#4caf50' : healthRatio > 0.25 ? '#ff9800' : '#f44336';
+                ctx.fillStyle = healthColor;
+                ctx.fillRect(hudX, hudY + 16, healthBarW * healthRatio, healthBarH);
+                ctx.fillStyle = '#fff';
+                ctx.font = '10px "Segoe UI", Arial, sans-serif';
+                ctx.fillText(`${Math.ceil(player.health)}`, hudX + healthBarW + 4, hudY + 25);
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 11px "Segoe UI", Arial, sans-serif';
+                ctx.fillText('ARMOR', hudX, hudY + 40);
+                ctx.fillStyle = '#333';
+                ctx.fillRect(hudX, hudY + 44, healthBarW, healthBarH);
+                const armorRatio = player.armor / player.maxArmor;
+                ctx.fillStyle = '#2196F3';
+                ctx.fillRect(hudX, hudY + 44, healthBarW * armorRatio, healthBarH);
+                ctx.fillStyle = '#fff';
+                ctx.font = '10px "Segoe UI", Arial, sans-serif';
+                ctx.fillText(`${Math.ceil(player.armor)}`, hudX + healthBarW + 4, hudY + 53);
+                const ammoX = W / 2;
+                const ammoY = H - 55;
+                const wp = WEAPONS[player.currentWeapon];
+                ctx.fillStyle = 'rgba(0,0,0,0.5)';
+                ctx.fillRect(ammoX - 60, ammoY - 5, 120, 45);
+                ctx.strokeStyle = '#444';
+                ctx.strokeRect(ammoX - 60, ammoY - 5, 120, 45);
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 13px "Segoe UI", Arial, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(wp ? wp.name : '', ammoX, ammoY + 10);
+                if (wp && wp.type !== 'melee') {
+                    ctx.fillStyle = player.ammoInMag > 0 ? '#fff' : '#f44';
+                    ctx.font = 'bold 28px "Segoe UI", Arial, sans-serif';
+                    ctx.fillText(`${player.ammoInMag}`, ammoX, ammoY + 34);
+                    ctx.fillStyle = '#aaa';
+                    ctx.font = '14px "Segoe UI", Arial, sans-serif';
+                    ctx.fillText(`/ ${player.reserveAmmo}`, ammoX + 35, ammoY + 32);
+                } else {
+                    ctx.fillStyle = '#aaa';
+                    ctx.font = '16px "Segoe UI", Arial, sans-serif';
+                    ctx.fillText('inf', ammoX, ammoY + 30);
+                }
+                if (player.reloading) {
+                    const progress = player.reloadProgress / player.reloadTotalTime;
+                    ctx.fillStyle = 'rgba(255,200,0,0.8)';
+                    ctx.fillRect(ammoX - 55, ammoY + 36, 110 * progress, 4);
+                    ctx.fillStyle = '#ffd700';
+                    ctx.font = '10px "Segoe UI", Arial, sans-serif';
+                    ctx.fillText('RELOADING...', ammoX, ammoY - 8);
+                }
+                const moneyX = W - 25;
+                const moneyY = 25;
+                ctx.fillStyle = 'rgba(0,0,0,0.5)';
+                ctx.fillRect(moneyX - 95, moneyY - 5, 100, 30);
+                ctx.strokeStyle = '#444';
+                ctx.strokeRect(moneyX - 95, moneyY - 5, 100, 30);
+                ctx.fillStyle = '#ffd700';
+                ctx.font = 'bold 16px "Segoe UI", Arial, sans-serif';
+                ctx.textAlign = 'right';
+                ctx.fillText(`$${state.money.toLocaleString()}`, moneyX, moneyY + 17);
+                const roundY = mmY + mmH + 15;
+                ctx.fillStyle = 'rgba(0,0,0,0.5)';
+                ctx.fillRect(mmX, roundY - 5, 90, 22);
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 12px "Segoe UI", Arial, sans-serif';
+                ctx.textAlign = 'left';
+                ctx.fillText(`ROUND ${state.round}`, mmX + 5, roundY + 11);
+                if (isInBuyZone() && state.phase === 'playing') {
+                    ctx.fillStyle = 'rgba(50,150,255,0.8)';
+                    ctx.font = 'bold 13px "Segoe UI", Arial, sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('[B] BUY MENU', W / 2, H - 100);
+                }
+            }
+
+            function drawCrosshair() {
+                const cx = mouseX,
+                    cy = mouseY;
+                const size = 12,
+                    gap = 4;
+                ctx.strokeStyle = 'rgba(0,255,0,0.8)';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(cx, cy - gap);
+                ctx.lineTo(cx, cy - gap - size);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(cx, cy + gap);
+                ctx.lineTo(cx, cy + gap + size);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(cx - gap, cy);
+                ctx.lineTo(cx - gap - size, cy);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(cx + gap, cy);
+                ctx.lineTo(cx + gap + size, cy);
+                ctx.stroke();
+                ctx.fillStyle = 'rgba(255,0,0,0.7)';
+                ctx.beginPath();
+                ctx.arc(cx, cy, 1.5, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            function drawGameOverScreen() {
+                ctx.fillStyle = 'rgba(0,0,0,0.7)';
+                ctx.fillRect(0, 0, W, H);
+                ctx.textAlign = 'center';
+                if (state.phase === 'win') {
+                    ctx.fillStyle = '#4caf50';
+                    ctx.font = 'bold 48px "Segoe UI", Arial, sans-serif';
+                    ctx.fillText('VICTORY!', W / 2, H / 2 - 30);
+                    ctx.fillStyle = '#fff';
+                    ctx.font = '20px "Segoe UI", Arial, sans-serif';
+                    ctx.fillText(`+$3250 | ${state.killsThisRound} kills | ${state.headshotsThisRound} headshots`, W / 2,
+                        H / 2 + 20);
+                } else {
+                    ctx.fillStyle = '#f44336';
+                    ctx.font = 'bold 48px "Segoe UI", Arial, sans-serif';
+                    ctx.fillText('DEFEAT', W / 2, H / 2 - 30);
+                    ctx.fillStyle = '#fff';
+                    ctx.font = '20px "Segoe UI", Arial, sans-serif';
+                    ctx.fillText(`Kills: ${state.killsThisRound} | Headshots: ${state.headshotsThisRound}`, W / 2, H / 2 +
+                        20);
+                }
+                ctx.fillStyle = '#ffd700';
+                ctx.font = 'bold 18px "Segoe UI", Arial, sans-serif';
+                const pulse = Math.sin(performance.now() / 1000 * 3) * 0.3 + 0.7;
+                ctx.globalAlpha = pulse;
+                ctx.fillText('[ENTER] Restart', W / 2, H / 2 + 60);
+                ctx.globalAlpha = 1;
+            }
+
+            function drawDamageFlash() {
+                if (state.damageFlash > 0) {
+                    ctx.fillStyle = `rgba(255,0,0,${state.damageFlash * 0.5})`;
+                    ctx.fillRect(0, 0, W, H);
+                }
+            }
+
+            let lastTime = performance.now();
+            let gameTime = 0;
+            let gameRunning = false;
+
+            function gameLoop(timestamp) {
+                requestAnimationFrame(gameLoop);
+                let dt = (timestamp - lastTime) / 1000;
+                if (dt > 0.1) dt = 0.1;
+                if (dt <= 0) dt = 0.016;
+                lastTime = timestamp;
+                gameTime += dt;
+                if (gameRunning) update(dt);
+                render();
+                mouseClicked = false;
+            }
+
+            function update(dt) {
+                state.damageFlash = Math.max(0, state.damageFlash - dt * 3);
+                state.shakeAmount = Math.max(0, state.shakeAmount - dt * 15);
+                if (state.buyTimer > 0 && state.phase === 'playing') { state.buyTimer -= dt; if (state.buyTimer <= 0 &&
+                        buyMenuVisible) closeBuyMenu(); }
+                if (state.phase === 'win') { state.winTimer += dt; return; }
+                if (state.phase === 'lose') { state.loseTimer += dt; return; }
+                player.update(dt);
+                const wp = WEAPONS[player.currentWeapon];
+                if (mouseDown && player.alive && state.phase === 'playing') {
+                    if (wp && (wp.type === 'rifle' || (wp.type === 'pistol' && mouseClicked))) player.shoot(gameTime);
+                    if (wp && wp.type === 'sniper' && mouseClicked) player.shoot(gameTime);
+                    if (wp && wp.type === 'melee' && mouseClicked) player.shoot(gameTime);
+                }
+                if (state.isHost || state.gameMode === 'solo') {
+                    for (const enemy of enemies) updateEnemy(enemy, dt);
+                }
+                updateBullets(dt);
+                updateParticlesAndFlashes(dt);
+                updateCamera(dt);
+                if (state.phase === 'playing') checkWinCondition();
+                if (state.isHost) broadcastHostState();
+            }
+
+            function render() {
+                ctx.clearRect(0, 0, W, H);
+                let shakeX = 0,
+                    shakeY = 0;
+                if (state.shakeAmount > 0.1) { shakeX = (Math.random() - 0.5) * state.shakeAmount * 2;
+                    shakeY = (Math.random() - 0.5) * state.shakeAmount * 2; }
+                ctx.save();
+                ctx.translate(shakeX, shakeY);
+                drawMap();
+                drawParticles();
+                for (const enemy of enemies) {
+                    if (!enemy.alive) continue;
+                    drawEntity(enemy.x, enemy.y, ENEMY_RADIUS, enemy.angle, '#d4453a', '#f0c0a0', false, enemy
+                        .damageFlash, null);
+                }
+                if (player.alive && state.phase !== 'lose') {
+                    drawEntity(player.x, player.y, PLAYER_RADIUS, player.angle, '#3a8fd4', '#ffe0c0', true, state
+                        .damageFlash > 0.2 ? 1 : 0, state.gameMode !== 'solo' ? 'YOU' : null);
+                }
+                for (const rId in state.remotePlayers) {
+                    const rp = state.remotePlayers[rId];
+                    if (!rp.alive) continue;
+                    drawEntity(rp.x, rp.y, PLAYER_RADIUS, rp.angle, '#e8a030', '#ffe0c0', false, rp.damageFlash || 0, rp
+                        .label || 'P2');
+                }
+                drawBullets();
+                drawMuzzleFlashes();
+                ctx.restore();
+                drawHUD();
+                drawDamageFlash();
+                if (player.alive && state.phase === 'playing') drawCrosshair();
+                if (state.phase === 'win' || state.phase === 'lose') drawGameOverScreen();
+                if (state.buyTimer > 0 && state.phase === 'playing') {
+                    ctx.fillStyle = 'rgba(255,255,255,0.8)';
+                    ctx.font = 'bold 14px "Segoe UI", Arial, sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(`Buy phase: ${Math.ceil(state.buyTimer)}s remaining`, W / 2, 50);
+                }
+            }
+
+            function restartRound() {
+                const wasWin = state.phase === 'win';
+                state.phase = 'playing';
+                state.round++;
+                state.killsThisRound = 0;
+                state.headshotsThisRound = 0;
+                state.buyTimer = 12;
+                state.winTimer = 0;
+                state.loseTimer = 0;
+                state.shakeAmount = 0;
+                state.damageFlash = 0;
+                if (!wasWin && player.health <= 0) state.money += 1400;
+                bullets = [];
+                muzzleFlashes = [];
+                particles = [];
+                player.reset();
+                if (state.isHost || state.gameMode === 'solo') spawnEnemies();
+                closeBuyMenu();
+                if (state.isHost) broadcastGameState();
+            }
+
+            let broadcastChannel = null;
+            let wsConnection = null;
+            let syncInterval = null;
+
+            function setupBroadcastChannel(roomCode) {
+                if (broadcastChannel) broadcastChannel.close();
+                broadcastChannel = new BroadcastChannel('cs2_tactical_' + roomCode);
+                broadcastChannel.onmessage = (event) => {
+                    handleNetworkMessage(event.data);
+                };
+                state.multiplayerConnected = true;
+            }
+
+            function setupWebSocket(roomCode, isHost) {
+                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                const wsUrl = `${protocol}//${window.location.hostname}:8765`;
+                try {
+                    wsConnection = new WebSocket(wsUrl);
+                    wsConnection.onopen = () => {
+                        state.multiplayerConnected = true;
+                        wsConnection.send(JSON.stringify({ type: 'join', room: roomCode, isHost: isHost,
+                            playerId: state.playerId }));
+                        updateStatusText('Connected to server');
+                    };
+                    wsConnection.onmessage = (event) => {
+                        try {
+                            const data = JSON.parse(event.data);
+                            handleNetworkMessage(data);
+                        } catch (e) {}
+                    };
+                    wsConnection.onclose = () => {
+                        state.multiplayerConnected = false;
+                        updateStatusText('Disconnected from server');
+                    };
+                    wsConnection.onerror = () => {
+                        updateStatusText('Server connection failed - using local mode');
+                        setupBroadcastChannel(roomCode);
+                    };
+                } catch (e) {
+                    updateStatusText('WebSocket unavailable - using local mode');
+                    setupBroadcastChannel(roomCode);
+                }
+            }
+
+            function handleNetworkMessage(data) {
+                switch (data.type) {
+                    case 'playerState':
+                        if (data.playerId !== state.playerId) {
+                            state.remotePlayers[data.playerId] = data.state;
+                            state.remotePlayers[data.playerId].label = data.label || 'P' + data.playerId.slice(-1);
+                        }
+                        break;
+                    case 'bullet':
+                        if (data.bullet.ownerId !== state.playerId && data.bullet.ownerId !== 'p1_local') {
+                            const existingBullet = bullets.find(b => b.id === data.bullet.id);
+                            if (!existingBullet) bullets.push(data.bullet);
+                        }
+                        break;
+                    case 'enemyState':
+                        const enemyIdx = enemies.findIndex(e => e.id === data.enemy.id);
+                        if (enemyIdx >= 0) Object.assign(enemies[enemyIdx], data.enemy);
+                        else if (!enemies.find(e => e.id === data.enemy.id)) enemies.push(data.enemy);
+                        break;
+                    case 'enemyDeath':
+                        const deadEnemy = enemies.find(e => e.id === data.enemyId);
+                        if (deadEnemy) { deadEnemy.alive = false;
+                            deadEnemy.health = 0; }
+                        break;
+                    case 'gameState':
+                        if (!state.isHost) {
+                            state.phase = data.phase;
+                            state.round = data.round;
+                            state.buyTimer = data.buyTimer;
+                            state.killsThisRound = data.killsThisRound;
+                            state.money = data.money;
+                            if (data.enemies && data.enemies.length > 0 && enemies.length === 0) {
+                                enemies = data.enemies;
+                            }
+                        }
+                        break;
+                    case 'hostState':
+                        if (!state.isHost && data.enemies) {
+                            for (const eData of data.enemies) {
+                                const existing = enemies.find(e => e.id === eData.id);
+                                if (existing) Object.assign(existing, eData);
+                                else enemies.push(eData);
+                            }
+                            enemies = enemies.filter(e => data.enemies.find(ed => ed.id === e.id));
+                        }
+                        break;
+                    case 'playerLeft':
+                        delete state.remotePlayers[data.playerId];
+                        break;
+                }
+            }
+
+            function syncPlayerState() {
+                const pState = {
+                    x: player.x,
+                    y: player.y,
+                    angle: player.angle,
+                    health: player.health,
+                    armor: player.armor,
+                    alive: player.alive,
+                    currentWeapon: player.currentWeapon,
+                    ownedWeapons: player.ownedWeapons,
+                    ammoInMag: player.ammoInMag,
+                    reserveAmmo: player.reserveAmmo,
+                    reloading: player.reloading,
+                    damageFlash: state.damageFlash,
+                };
+                sendNetworkMessage({ type: 'playerState', playerId: state.playerId, state: pState, label: 'YOU' });
+            }
+
+            function broadcastBullet(bulletData) {
+                sendNetworkMessage({ type: 'bullet', bullet: bulletData });
+            }
+
+            function broadcastEnemyState(enemy) {
+                sendNetworkMessage({ type: 'enemyState', enemy: { ...enemy } });
+            }
+
+            function broadcastEnemyDeath(enemyId) {
+                sendNetworkMessage({ type: 'enemyDeath', enemyId: enemyId });
+            }
+
+            function broadcastGameState() {
+                sendNetworkMessage({
+                    type: 'gameState',
+                    phase: state.phase,
+                    round: state.round,
+                    buyTimer: state.buyTimer,
+                    killsThisRound: state.killsThisRound,
+                    money: state.money,
+                    enemies: enemies.map(e => ({ ...e })),
+                });
+            }
+
+            function broadcastHostState() {
+                if (!state.isHost) return;
+                sendNetworkMessage({
+                    type: 'hostState',
+                    enemies: enemies.map(e => ({ id: e.id, x: e.x, y: e.y, angle: e.angle, health: e.health, alive: e
+                            .alive, state: e.state, damageFlash: e.damageFlash })),
+                });
+            }
+
+            function sendNetworkMessage(data) {
+                if (broadcastChannel && state.multiplayerConnected) {
+                    try { broadcastChannel.postMessage(data); } catch (e) {}
+                }
+                if (wsConnection && wsConnection.readyState === WebSocket.OPEN) {
+                    try { wsConnection.send(JSON.stringify(data)); } catch (e) {}
+                }
+            }
+
+            function updateStatusText(msg) {
+                document.getElementById('status-text').textContent = msg;
+            }
+
+            function initGame() {
+                player.reset();
+                player.health = 1000000;
+                player.armor = 100000000;
+                player.alive = true;
+                player.ownedWeapons = ['knife', 'usp'];
+                player.currentWeapon = 'usp';
+                player.ammoInMag = WEAPONS.usp.ammo;
+                player.reserveAmmo = WEAPONS.usp.reserve;
+                state.money = 80000;
+                state.round = 1;
+                state.killsThisRound = 0;
+                state.headshotsThisRound = 0;
+                state.phase = 'playing';
+                state.buyTimer = 60;
+                state.winTimer = 0;
+                state.loseTimer = 0;
+                state.shakeAmount = 0;
+                state.damageFlash = 0;
+                state.remotePlayers = {};
+                bullets = [];
+                muzzleFlashes = [];
+                particles = [];
+                enemies = [];
+                if (state.isHost || state.gameMode === 'solo') spawnEnemies();
+                closeBuyMenu();
+                camera.x = player.x - W / 2;
+                camera.y = player.y - H / 2;
+            }
+
+            const menuOverlay = document.getElementById('menu-overlay');
+            const btnSolo = document.getElementById('btn-solo');
+            const btnHost = document.getElementById('btn-host');
+            const btnJoin = document.getElementById('btn-join');
+            const btnJoinConfirm = document.getElementById('btn-join-confirm');
+            const btnBack = document.getElementById('btn-back');
+            const roomInput = document.getElementById('room-input');
+            const statusText = document.getElementById('status-text');
+
+            function showMenuOptions(showJoin) {
+                btnSolo.style.display = showJoin ? 'none' : 'block';
+                btnHost.style.display = showJoin ? 'none' : 'block';
+                btnJoin.style.display = showJoin ? 'none' : 'block';
+                roomInput.style.display = showJoin ? 'block' : 'none';
+                btnJoinConfirm.style.display = showJoin ? 'block' : 'none';
+                btnBack.style.display = showJoin ? 'block' : 'none';
+                statusText.textContent = '';
+            }
+
+            btnSolo.addEventListener('click', () => {
+                initAudio();
+                state.gameMode = 'solo';
+                state.isHost = false;
+                state.playerId = 'p1';
+                state.multiplayerConnected = false;
+                if (broadcastChannel) { broadcastChannel.close();
+                    broadcastChannel = null; }
+                if (wsConnection) { wsConnection.close();
+                    wsConnection = null; }
+                menuOverlay.style.display = 'none';
+                initGame();
+                gameRunning = true;
+                document.body.style.cursor = 'none';
+            });
+
+            btnHost.addEventListener('click', () => {
+                initAudio();
+                const roomCode = Math.random().toString(36).substr(2, 8).toUpperCase();
+                state.gameMode = 'multi';
+                state.isHost = true;
+                state.playerId = 'host_' + Math.random().toString(36).substr(2, 6);
+                state.multiplayerConnected = false;
+                setupBroadcastChannel(roomCode);
+                setupWebSocket(roomCode, true);
+                menuOverlay.style.display = 'none';
+                updateStatusText('Room: ' + roomCode + ' (share this code)');
+                initGame();
+                gameRunning = true;
+                document.body.style.cursor = 'none';
+                if (syncInterval) clearInterval(syncInterval);
+                syncInterval = setInterval(() => {
+                    syncPlayerState();
+                    if (state.isHost) broadcastHostState();
+                }, 50);
+            });
+
+            btnJoin.addEventListener('click', () => {
+                showMenuOptions(true);
+                roomInput.focus();
+                updateStatusText('Enter room code');
+            });
+
+            btnJoinConfirm.addEventListener('click', () => {
+                const code = roomInput.value.trim();
+                if (!code) { updateStatusText('Please enter a room code'); return; }
+                initAudio();
+                state.gameMode = 'multi';
+                state.isHost = false;
+                state.playerId = 'client_' + Math.random().toString(36).substr(2, 6);
+                state.multiplayerConnected = false;
+                setupBroadcastChannel(code);
+                setupWebSocket(code, false);
+                menuOverlay.style.display = 'none';
+                updateStatusText('Joined room: ' + code);
+                initGame();
+                gameRunning = true;
+                document.body.style.cursor = 'none';
+                if (syncInterval) clearInterval(syncInterval);
+                syncInterval = setInterval(() => {
+                    syncPlayerState();
+                }, 50);
+            });
+
+            btnBack.addEventListener('click', () => {
+                showMenuOptions(false);
+                updateStatusText('');
+                roomInput.value = '';
+            });
+
+            showMenuOptions(false);
+            menuOverlay.style.display = 'flex';
+            document.body.style.cursor = 'default';
+            resizeCanvas();
+            camera.x = player.x - W / 2;
+            camera.y = player.y - H / 2;
+            requestAnimationFrame(gameLoop);
+
+            window.addEventListener('resize', () => {
+                resizeCanvas();
+                camera.x = Math.max(0, Math.min(MAP_W - W, camera.targetX));
+                camera.y = Math.max(0, Math.min(MAP_H - H, camera.targetY));
+            });
+
+            console.log('Tactical Shooter ready - Solo / Multiplayer (BroadcastChannel + WebSocket)');
+            console.log('WASD/ZQSD: Move | Mouse: Aim | Left Click: Shoot | R: Reload | B: Buy Menu | 1-6: Switch Weapon');
+            console.log('Multiplayer: Host a game and share the room code, or join with a code');
+        })();
+    </script>
+</body>
+</html>
